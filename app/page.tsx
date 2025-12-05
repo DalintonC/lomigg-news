@@ -12,7 +12,6 @@ async function getNews(): Promise<News[]> {
     .limit(100);
 
   if (error) {
-    console.error('Error fetching news:', error);
     return [];
   }
 

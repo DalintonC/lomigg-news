@@ -1,14 +1,14 @@
 name: Aggregate LoL News
 
 on:
-  # Corre cada 30 minutos
+  # Run every 30 minutes
   schedule:
     - cron: "*/30 * * * *"
 
-  # Permite ejecución manual desde GitHub Actions UI
+  # Manual trigger
   workflow_dispatch:
 
-  # Corre en cada push a main (para testing)
+  # Run on changes to the aggregator script or RSS sources config
   push:
     branches: [main]
     paths:

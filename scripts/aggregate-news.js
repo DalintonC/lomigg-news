@@ -9,6 +9,7 @@ const { supabaseAdmin } = require('../lib/supabase');
 const Parser = require('rss-parser');
 const crypto = require('crypto');
 const { extractMultipleImages } = require('../lib/image-extractor');
+const { all } = require('axios');
 
 try {
   validateEnv();
@@ -41,7 +42,54 @@ const RSS_SOURCES = [
     priority: 1,
     enabled: true,
   },
-  // ... resto de fuentes comentadas
+  {
+    id: 'dot-esports',
+    name: 'Dot Esports - LoL',
+    url: 'https://dotesports.com/league-of-legends/feed',
+    category: 'esports',
+    priority: 1,
+    enabled: true,
+  },
+  {
+    id: 'dexerto-lol',
+    name: 'Dexerto - League of Legends',
+    url: 'https://www.dexerto.com/league-of-legends/feed/',
+    category: 'news',
+    priority: 1,
+    enabled: true,
+  },
+  {
+    id: 'rift-herald',
+    name: 'The Rift Herald',
+    url: 'https://www.riftherald.com/rss/index.xml',
+    category: 'esports',
+    priority: 2,
+    enabled: true,
+  },
+  {
+    id: 'leaguefeed',
+    name: 'LeagueFeed',
+    url: 'https://leaguefeed.net/feed',
+    category: 'news',
+    priority: 2,
+    enabled: true,
+  },
+  {
+    id: 'noted-lol',
+    name: 'Noted.lol',
+    url: 'https://noted.lol/rss',
+    category: 'news',
+    priority: 2,
+    enabled: true,
+  },
+  {
+    id: 'estnn-lol',
+    name: 'ESTNN - LoL',
+    url: 'https://estnn.com/tag/league-of-legends/feed/',
+    category: 'esports',
+    priority: 2,
+    enabled: true,
+  },
 ];
 
 const parser = new Parser({
@@ -119,6 +167,7 @@ function createSlug(title) {
 
 async function aggregateNews() {
   const startTime = Date.now();
+  logger.info('Starting news aggregation');
   
   const metrics = {
     total: 0,
@@ -131,8 +180,6 @@ async function aggregateNews() {
       failed: 0,
     }
   };
-
-  logger.info('🚀 Iniciando agregación de noticias...\n');
   
   const allNews = [];
   const activeSources = RSS_SOURCES.filter(s => s.enabled);
@@ -154,22 +201,26 @@ async function aggregateNews() {
       if (existingNews) {
         existingNewsIds = new Set(existingNews.map(n => n.id));
         existingNews.forEach(n => existingNewsData.set(n.id, n));
-        logger.info('Noticias existentes cargadas', { count: existingNewsIds.size });
+        logger.info('Existing news loaded', { count: existingNewsIds.size });
       }
     } catch (error) {
-      logger.warn('No se pudieron cargar noticias existentes', { error: error.message });
+      logger.warn('Could not load existing news', { error: error.message });
     }
   }
   
-  let newNewsCount = 0;
-  let skippedCount = 0;
-  
   for (const source of activeSources) {
     try {
-      logger.info(`📰 Obteniendo noticias de: ${source.name}`);
+      logger.info('Fetching news', { source: source.name });
       
-      const feed = await parser.parseURL(source.url);
-      logger.info(`   ✅ Encontradas ${feed.items.length} noticias\n`);
+      const feed = await withRetry(
+        () => parser.parseURL(source.url),
+        { maxRetries: 3, initialDelay: 2000 }
+      );
+      
+      logger.info('News fetched', { 
+        source: source.name, 
+        count: feed.items.length 
+      });
 
       const itemsToProcess = feed.items.slice(0, 5);
       
@@ -185,27 +236,38 @@ async function aggregateNews() {
         const isNew = !existingNewsIds.has(newsId);
         
         if (isNew && aiProvider) {
-          newNewsCount++;
-          logger.info(`   🆕 Noticia nueva detectada (#${newNewsCount})`);
-          logger.info(`   🤖 Generando contenido en español...`);
-          
-          spanishContent = await aiProvider.generateSpanishContent(
-            item.title,
-            description,
-            item.contentEncoded || item.content || item.description
-          );
+          metrics.new++;
+          logger.debug('Translating new article', { 
+            title: item.title.substring(0, 50) 
+          });
 
-          if (!spanishContent) {
-            logger.warn(`   ⚠️  Usando contenido original (sin traducción)`);
-          } else {
-            logger.info(`   ✅ Traducción completada`);
+          try {
+            spanishContent = await aiProvider.generateSpanishContent(
+              item.title,
+              description,
+              item.contentEncoded || item.content || item.description
+            );
+            
+            if (!spanishContent) {
+              metrics.translated++;
+            }
+
+            await sleep(10000);
+
+          } catch (error) {
+            logger.warn('Translation failed', { 
+              error: error.message,
+              title: item.title.substring(0, 50)
+            });
+            captureError(error, {
+              component: 'translation',
+              source: source.id,
+              title: item.title
+            });
           }
-
-          await sleep(10000);
-          
+            
         } else if (!isNew) {
-          skippedCount++;
-          logger.info(`   ♻️  Noticia existente, reutilizando traducción (ahorro de tokens)`);
+          metrics.existing++;
           
           const existing = existingNewsData.get(newsId);
           if (existing) {
@@ -214,10 +276,7 @@ async function aggregateNews() {
               descriptionEs: existing.description,
               summaryEs: existing.summary_es,
             };
-          }
-          
-        } else {
-          logger.warn(`   ℹ️  IA deshabilitada, guardando en inglés`);
+          } 
         }
         
         const newsItem = {
@@ -241,31 +300,35 @@ async function aggregateNews() {
         };
         
         allNews.push(newsItem);
+        metrics.total++;
       }
       
+      metrics.sources.success++;
+      
     } catch (error) {
-      logger.error(`   ❌ Error obteniendo ${source.name}:`, error.message);
-      logger.error('Stack trace completo:', error);
+      metrics.sources.failed++;
+      metrics.errors++;
+      logger.error('Source fetch failed', error, { source: source.name });
+      captureError(error, {
+        component: 'aggregate-news',
+        source: source.id,
+        fatal: false
+      });
     }
   }
   
   allNews.sort((a, b) => new Date(b.pub_date) - new Date(a.pub_date));
-  
   const uniqueNews = deduplicateNews(allNews);
-  
-  logger.info('\n📊 RESUMEN:');
-  logger.info(`   Total de noticias procesadas: ${allNews.length}`);
-  logger.info(`   Noticias únicas: ${uniqueNews.length}`);
-  logger.info(`   Noticias nuevas traducidas: ${newNewsCount}`);
-  logger.info(`   Noticias existentes (sin traducir): ${skippedCount}`);
-  logger.info(`   Duplicados removidos: ${allNews.length - uniqueNews.length}`);
-  logger.info(`   💰 Ahorro estimado: ~${skippedCount} traducciones\n`);
 
   const duration = Date.now() - startTime;
   
   logger.success('News added successful', {
     duration: `${(duration / 1000).toFixed(2)}s`,
-    metrics,
+    metrics: {
+      ...metrics,
+      unique: uniqueNews.length,
+      duplicates: allNews.length - uniqueNews.length,
+    },
   });
   
   return uniqueNews;
@@ -289,11 +352,7 @@ function displayStats(news) {
     categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
   });
   
-  logger.info('📈 Noticias por categoría:');
-  Object.entries(categoryCounts).forEach(([category, count]) => {
-    console.log(`   ${category}: ${count}`);
-  });
-  console.log('');
+  logger.info('News by category', { categories: categoryCounts });
 }
 
 async function saveToSupabase(news) {
@@ -302,16 +361,24 @@ async function saveToSupabase(news) {
     return;
   }
   
-  logger.info('💾 Saving news on Supabase...');
+  logger.info('Saving to database', { count: news.length });
   
-  const { data, error } = await supabaseAdmin
-    .from('news')
-    .upsert(news, { onConflict: 'id' });
-  
-  if (error) {
-    logger.error('❌ Error saving:', error.message);
-  } else {
-    logger.info(`✅ ${news.length} news saved on Supabase\n`);
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('news')
+      .upsert(news, { onConflict: 'id' });
+
+    if (error) throw error;
+    
+    logger.success('Saved to database', { count: news.length });
+  } catch (error) {
+    logger.error('Database save failed', error);
+    captureError(error, {
+      component: 'saveToSupabase',
+      newsCount: news.length,
+      fatal: true
+    });
+    throw error;
   }
 }
 
@@ -326,11 +393,11 @@ if (require.main === module) {
         'news-output.json',
         JSON.stringify(news.slice(0, 10), null, 2)
       );
-
-      logger.success('✅ First 10 news saved on news-output.json');
-      logger.success('\n🎉 News savings succesful!\n');
+      
+      logger.success('Sample saved', { file: 'news-output.json' });
 
       await flush();
+      process.exit(0);
     })
     .catch(async (error) => {
       logger.error('Critical error on saving', error);
