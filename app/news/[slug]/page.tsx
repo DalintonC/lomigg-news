@@ -1,9 +1,12 @@
-import { supabase } from '@/database/supabase';
+import { supabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { News } from '@/app/types/news';
 
-async function getNews(slug: string) {
+async function getNews(slug: string): Promise<News | null> {
+    if (!supabase) return null;
+
     const { data, error } = await supabase
         .from('news')
         .select('*')
@@ -11,7 +14,7 @@ async function getNews(slug: string) {
         .single();
 
     if (error || !data) return null;
-    return data;
+    return data as News;
 }
 
 export default async function NewsPage({ params }: { params: { slug: string } }) {
@@ -49,7 +52,7 @@ export default async function NewsPage({ params }: { params: { slug: string } })
                 </div>
             </header>
 
-            {/* Contenido */}
+            {/* Content */}
             <article className="container mx-auto px-4 py-12 max-w-4xl">
                 {/* Metadata */}
                 <div className="flex items-center gap-3 mb-6">
@@ -60,12 +63,12 @@ export default async function NewsPage({ params }: { params: { slug: string } })
                     <span className="text-slate-500 text-sm">• {news.source}</span>
                 </div>
 
-                {/* Título */}
+                {/* Title */}
                 <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
                     {news.title}
                 </h1>
 
-                {/* Imagen */}
+                {/* Image */}
                 {news.image && (
                     <div className="relative w-full h-96 mb-8 rounded-xl overflow-hidden border border-slate-700">
                         <Image
@@ -88,7 +91,50 @@ export default async function NewsPage({ params }: { params: { slug: string } })
                     </p>
                 </div>
 
-                {/* Opinión LomiGG - Espacio para tu análisis */}
+                {/* Summary */}
+                {news.summary_es && (
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 mb-8">
+                        <h3 className="text-xl font-bold text-white mb-4">📋 Resumen Completo</h3>
+                        <div className="text-slate-300 leading-relaxed whitespace-pre-line">
+                            {news.summary_es}
+                        </div>
+                    </div>
+                )}
+
+                {/* Galería de imágenes */}
+                {news.image_gallery && news.image_gallery.length > 0 && (
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 mb-8">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-white">🖼️ Galería de Imágenes</h3>
+                            <span className="text-xs text-slate-500">© {news.source}</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {news.image_gallery.map((imgUrl: string, index: number) => (
+                                <div key={index} className="relative group overflow-hidden rounded-lg border border-slate-600">
+                                    <img
+                                        src={imgUrl}
+                                        alt={`${news.title} - Imagen ${index + 1}`}
+                                        className="w-full h-64 object-cover group-hover:scale-105 transition duration-300"
+                                        loading="lazy"
+                                    />
+                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                                        <p className="text-white text-sm font-semibold">
+                                            Imagen {index + 1} de {news.image_gallery?.length}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <p className="text-slate-400 text-sm mt-4 italic">
+                            * Imágenes extraídas del artículo original para vista previa.
+                            Ver artículo completo con todas las imágenes en {news.source}.
+                        </p>
+                    </div>
+                )}
+
+                {/* Opinión LomiGG */}
                 <div className="bg-gradient-to-br from-amber-500/10 to-blue-500/10 border border-amber-500/20 rounded-xl p-6 mb-8">
                     <div className="flex items-center gap-3 mb-4">
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-amber-500 rounded-full flex items-center justify-center">
@@ -114,6 +160,12 @@ export default async function NewsPage({ params }: { params: { slug: string } })
                     >
                         📰 Leer artículo completo en {news.source} →
                     </a>
+                </div>
+
+                <div className="text-center text-xs text-slate-500 mt-8 p-4 bg-slate-800/30 rounded">
+                    Las imágenes mostradas son propiedad de sus respectivos autores y se muestran
+                    únicamente como vista previa bajo uso legítimo. Para el contenido completo,
+                    visita la fuente original.
                 </div>
 
                 {/* Compartir */}

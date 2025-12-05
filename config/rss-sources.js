@@ -1,9 +1,6 @@
-// config/rss-sources.js
-// ACTUALIZADO - URLs verificadas que funcionan en 2025
-
 export const RSS_SOURCES = [
   // ========================================
-  // FUENTES OFICIALES Y AGREGADORES
+  // OFFICIAL SOURCES
   // ========================================
   // {
   //   id: 'rito-news-lol',
@@ -18,7 +15,7 @@ export const RSS_SOURCES = [
   // },
   
   // ========================================
-  // FUENTES ESPECIALIZADAS (Alta Prioridad)
+  // SPECIAL SOURCES (Alta Prioridad)
   // ========================================
   {
     id: 'surrender-at-20',
@@ -77,7 +74,7 @@ export const RSS_SOURCES = [
   },
   
   // ========================================
-  // FUENTES ADICIONALES (Opcional)
+  // OTHER SOURCES
   // ========================================
   {
     id: 'snowball-esports',
@@ -103,18 +100,18 @@ export const RSS_SOURCES = [
   },
 ];
 
-// Categorías disponibles
+// Available categories
 export const CATEGORIES = {
   official: {
     name: 'Official',
     slug: 'official',
-    color: '#C89B3C', // Dorado de LoL
+    color: '#C89B3C',
     description: 'Official announcements from Riot Games',
   },
   esports: {
     name: 'Esports',
     slug: 'esports',
-    color: '#0AC8B9', // Cyan de esports
+    color: '#0AC8B9',
     description: 'Competitive League of Legends news',
   },
   pbe: {
@@ -137,19 +134,16 @@ export const CATEGORIES = {
   },
 };
 
-// Función helper para obtener fuentes activas
 export function getActiveSources() {
   return RSS_SOURCES.filter(source => source.enabled);
 }
 
-// Función helper para obtener fuentes por categoría
 export function getSourcesByCategory(category) {
   return RSS_SOURCES.filter(
     source => source.enabled && source.category === category
   );
 }
 
-// Función helper para obtener fuentes por prioridad
 export function getSourcesByPriority(priority) {
   return RSS_SOURCES.filter(
     source => source.enabled && source.priority === priority

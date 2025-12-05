@@ -1,18 +1,16 @@
-/* app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* LomiGG Brand Colors */
-  --primary: #1E3A8A;      /* Deep Blue */
-  --secondary: #3B82F6;    /* Bright Blue */
-  --accent: #F59E0B;       /* Golden Amber (Renekton) */
-  --bg-dark: #0F172A;      /* Dark Background */
-  --bg-card: #1E293B;      /* Card Background */
-  --border: #334155;       /* Border Color */
-  --text-primary: #F1F5F9; /* Primary Text */
-  --text-secondary: #94A3B8; /* Secondary Text */
+  --primary: #1E3A8A;
+  --secondary: #3B82F6;
+  --accent: #F59E0B;
+  --bg-dark: #0F172A;
+  --bg-card: #1E293B;
+  --border: #334155;
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
 }
 
 * {

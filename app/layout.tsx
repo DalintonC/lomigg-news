@@ -1,9 +1,8 @@
-// app/layout.tsx
 import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'LomiGG News - League of Legends News Aggregator',
+  title: 'LomiGG - League of Legends News',
   description: 'Todas las últimas noticias de League of Legends agregadas en un solo lugar. Actualizaciones del juego, esports y más.',
   keywords: ['League of Legends', 'LoL', 'Esports', 'Gaming News', 'LomiGG', 'Renekton'],
 };

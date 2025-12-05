@@ -1,20 +1,22 @@
-import { supabase } from '@/database/supabase';
+import { supabase } from '@/lib/supabase';
 import NewsCard from '@/app/components/news-card';
-import Link from 'next/link';
+import { News } from './types/news';
 
-async function getNews() {
+async function getNews(): Promise<News[]> {
+  if (!supabase) return [];
+
   const { data, error } = await supabase
     .from('news')
     .select('*')
     .order('pub_date', { ascending: false })
-    .limit(12);
+    .limit(100);
 
   if (error) {
     console.error('Error fetching news:', error);
     return [];
   }
 
-  return data || [];
+  return data as News[] || [];
 }
 
 export default async function Home() {
