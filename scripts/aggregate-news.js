@@ -9,7 +9,8 @@ const { supabaseAdmin } = require('../lib/supabase');
 const Parser = require('rss-parser');
 const crypto = require('crypto');
 const { extractMultipleImages } = require('../lib/image-extractor');
-const { all } = require('axios');
+const { getActiveSources } = require('../config/rss-sources');
+const { all, get } = require('axios');
 
 try {
   validateEnv();
@@ -32,65 +33,6 @@ try {
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-const RSS_SOURCES = [
-  {
-    id: 'surrender-at-20',
-    name: 'Surrender at 20',
-    url: 'http://feeds.feedburner.com/Surrenderat20',
-    category: 'pbe',
-    priority: 1,
-    enabled: true,
-  },
-  {
-    id: 'dot-esports',
-    name: 'Dot Esports - LoL',
-    url: 'https://dotesports.com/league-of-legends/feed',
-    category: 'esports',
-    priority: 1,
-    enabled: true,
-  },
-  {
-    id: 'dexerto-lol',
-    name: 'Dexerto - League of Legends',
-    url: 'https://www.dexerto.com/league-of-legends/feed/',
-    category: 'news',
-    priority: 1,
-    enabled: true,
-  },
-  {
-    id: 'rift-herald',
-    name: 'The Rift Herald',
-    url: 'https://www.riftherald.com/rss/index.xml',
-    category: 'esports',
-    priority: 2,
-    enabled: true,
-  },
-  {
-    id: 'leaguefeed',
-    name: 'LeagueFeed',
-    url: 'https://leaguefeed.net/feed',
-    category: 'news',
-    priority: 2,
-    enabled: true,
-  },
-  {
-    id: 'noted-lol',
-    name: 'Noted.lol',
-    url: 'https://noted.lol/rss',
-    category: 'news',
-    priority: 2,
-    enabled: true,
-  },
-  {
-    id: 'estnn-lol',
-    name: 'ESTNN - LoL',
-    url: 'https://estnn.com/tag/league-of-legends/feed/',
-    category: 'esports',
-    priority: 2,
-    enabled: true,
-  },
-];
 
 const parser = new Parser({
   customFields: {
@@ -182,7 +124,7 @@ async function aggregateNews() {
   };
   
   const allNews = [];
-  const activeSources = RSS_SOURCES.filter(s => s.enabled);
+  const activeSources = getActiveSources();
   
   let existingNewsIds = new Set();
   let existingNewsData = new Map();
